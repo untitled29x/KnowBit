@@ -6,27 +6,65 @@ struct ContentView: View {
 
     var body: some View {
         TabView(selection: $selectedTab) {
-            ZStack(alignment: .topLeading) {
-                VStack {
+            ZStack {
+                VStack(alignment: .leading) {
+                    
+                    // Top profile + streak
+                    HStack {
+                        Image("pfptest")
+                            .resizable()
+                            .frame(width: 40, height: 40)
+                            .clipShape(Circle())
 
+                        Text("Yann")
+                            .bold()
+
+                        Spacer()
+
+                        ZStack(alignment: .topTrailing) {
+                            Image(systemName: "flame.fill")
+                                .font(.title3)
+                                .foregroundStyle(
+                                    LinearGradient(
+                                        colors: [.orange, .red],
+                                        startPoint: .top,
+                                        endPoint: .bottom
+                                    )
+                                )
+
+                            Text("1")
+                                .font(.caption2)
+                                .foregroundColor(.white)
+                                .padding(3)
+                                .background(Circle().fill(Color.red))
+                                .offset(x: 8, y: -8)
+                        }
+                    }
+                    .padding(.horizontal)
+                    .padding(.top, 40) // moves it higher
+                    
+                    // Greeting
                     Text("Good Morning, Yann! 👋")
                         .font(.title2)
-                        .padding(.top, 150)
-                        .bold(true)
-                    Spacer()
+                        .bold()
+                        .padding(.top, 20)
+                        .padding(.leading, 80)
+
                     Text("Ready to continue your learning journey?")
                         .font(.callout)
+                        .padding(.bottom, 10)
+                        .padding(.leading, 50)
 
+                    // Search bar
                     TextField("Ask KnowBit anything...", text: .constant(""))
                         .font(.system(size: 14))
                         .padding(.leading, 30)
-                        .frame(width: 300, height: 38)
+                        .frame(height: 38)
                         .overlay(
                             HStack {
                                 Image(systemName: "magnifyingglass")
                                     .foregroundColor(.gray)
                                     .padding(.leading, 8)
-
                                 Spacer()
                             }
                         )
@@ -35,39 +73,42 @@ struct ContentView: View {
                                 .stroke(Color.gray, lineWidth: 0.8)
                         )
                         .shadow(color: Color.gray.opacity(0.4), radius: 4, x: 0, y: 2)
-                        .padding()
-                        .padding()
+                        .padding(.horizontal)
 
-                    Text("Start AI Conversation")
-                        .font(.headline)
-                        .foregroundColor(.black)
-                        .bold(false)
-                        .padding(.leading, -30)
-                        .padding(.top, -20)
-                        .frame(width: 350, height: 150)
-                        .cornerRadius(15)
-                        .foregroundColor(.white)
-                        .padding(.bottom, 400)
+                    Spacer()
+
+                    // Start AI Conversation Button
+                    Button(action: {
+                        // Action for starting AI conversation
+                    }) {
+                        HStack {
+                            Image(systemName: "bubble.fill")
+                                .foregroundColor(.purple)
+                                .padding(.leading, 0)
+                                .padding(.top, -58)
+                            
+                            Text("Start AI Conversation")
+                                .foregroundColor(.black)
+                                .padding(.leading, 0)
+                                .padding(.top, -60)
+                                .font(.callout)
+                                .bold()
+                            Text("Get instant help, generate materials, or ask questions.")
+                                .padding(.top, 10)
+                                .font(.footnote)
+                                .padding(.leading, -180 )
+                        }
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 60) // taller button
+                        .background(Color.white)
+                        .cornerRadius(20)
+                        .shadow(color: Color.gray.opacity(0.4), radius: 6, x: 0, y: 3)
+                        .padding(.horizontal, 20) // wider button
+                        
+                    }
+                    .padding(.top, -240)
+                    Spacer(minLength: 30)
                 }
-
-                Image(systemName: "flame.fill")
-                    .foregroundColor(.orange)
-                    .padding(.leading, 300)
-                    .padding(.top, 100)
-                Text("1")
-                    .font(.headline)
-                    .padding(.leading, 289)
-                    .padding(.top, 100)
-
-                Image("pfptest")
-                    .resizable()
-                    .frame(width: 40, height: 40)
-                    .padding(.top, 87)
-                    .padding(.leading, 0)
-                Text("Yann")
-                    .bold(true)
-                    .padding(.horizontal, 45)
-                    .padding(.top, 100)
             }
             .tabItem {
                 Label("Home", systemImage: "house")
@@ -139,7 +180,6 @@ struct ContentView: View {
             }
             .tag(4)
         }
-        .padding()
         .accentColor(.purple)
     }
 }
