@@ -1,76 +1,131 @@
 import SwiftUI
+import UIKit
 
 // MARK: - Data Models
-struct StudySet: Identifiable {
-    let id = UUID()
-    let title: String
-    let cardCount: Int
-    let lastStudied: String
-    let progress: Double
-    let category: String
-    let author: String
-    let downloads: Int
-    let rating: Double
-    let difficulty: String
+
+class AppData: ObservableObject {
+    @Published var user: User
+    @Published var dailyProgress: DailyProgress
+    @Published var courses: [Course]
+    @Published var flashcardSets: [FlashcardSet]
+    @Published var isDarkMode: Bool = false
     
-    var description: String {
-        switch title {
-        case "Advanced Spanish Grammar": return "Master complex Spanish grammar rules"
-        case "AP Biology Cell Structure": return "Complete guide to cell biology for AP exam"
-        case "World War II Timeline": return "Key events and dates from WWII"
-        default: return "Study set description"
-        }
+    init() {
+        self.user = User(
+            username: "Alex",
+            profileImageURL: "https://via.placeholder.com/100",
+            streak: 7,
+            totalStudyTime: "45h 30m"
+        )
+        
+        self.dailyProgress = DailyProgress(
+            percentage: 75,
+            subjectsCompleted: 3,
+            totalSubjects: 4,
+            timeStudied: "2h 15m"
+        )
+        
+        self.courses = [
+            Course(title: "Algebra Basics", emoji: "🧮", color: .orange, progress: 85, totalLessons: 12),
+            Course(title: "Chemistry 101", emoji: "🔬", color: .blue, progress: 60, totalLessons: 8),
+            Course(title: "World History", emoji: "🏛️", color: .brown, progress: 40, totalLessons: 15),
+            Course(title: "Physics Fundamentals", emoji: "🚀", color: .purple, progress: 25, totalLessons: 10)
+        ]
+        
+        self.flashcardSets = [
+            FlashcardSet(
+                title: "Spanish Vocabulary",
+                emoji: "🇪🇸",
+                color: .red,
+                cards: [
+                    Flashcard(question: "Hello", answer: "Hola"),
+                    Flashcard(question: "Thank you", answer: "Gracias"),
+                    Flashcard(question: "Goodbye", answer: "Adiós")
+                ]
+            ),
+            FlashcardSet(
+                title: "Math Formulas",
+                emoji: "📐",
+                color: .blue,
+                cards: [
+                    Flashcard(question: "Area of circle", answer: "πr²"),
+                    Flashcard(question: "Pythagorean theorem", answer: "a² + b² = c²")
+                ]
+            )
+        ]
     }
 }
 
-struct Achievement: Identifiable {
+struct User {
+    var username: String
+    var profileImageURL: String
+    var streak: Int
+    var totalStudyTime: String
+}
+
+struct DailyProgress {
+    let percentage: Double
+    let subjectsCompleted: Int
+    let totalSubjects: Int
+    let timeStudied: String
+}
+
+struct Course: Identifiable {
     let id = UUID()
     let title: String
-    let description: String
-    let icon: String
-    let isEarned: Bool
+    let emoji: String
+    let color: Color
+    let progress: Double
+    let totalLessons: Int
 }
 
-struct StoreItem: Identifiable {
+struct FlashcardSet: Identifiable {
     let id = UUID()
-    let name: String
-    let price: Int
-    let rarity: String
-    let category: String
-    let icon: String
+    let title: String
+    let emoji: String
+    let color: Color
+    var cards: [Flashcard]
+    let lastStudied = Date()
 }
 
-// MARK: - Main Content View with Tab Navigation
+struct Flashcard: Identifiable {
+    let id = UUID()
+    var question: String
+    var answer: String
+}
+
+// MARK: - ContentView with Tabs
+
 struct ContentView: View {
+    @EnvironmentObject var appData: AppData
     @State private var selectedTab = 0
-    @State private var coins = 0
     
     var body: some View {
         TabView(selection: $selectedTab) {
-            HomeView(coins: $coins)
+            HomeView()
                 .tabItem {
-                    Image(systemName: "house.fill")
+                    Image(systemName: selectedTab == 0 ? "house.fill" : "house")
                     Text("Home")
                 }
                 .tag(0)
             
-            DiscoverView()
+            CoursesView()
                 .tabItem {
-                    Image(systemName: "safari.fill")
-                    Text("Discover")
+                    Image(systemName: selectedTab == 1 ? "book.fill" : "book")
+                    Text("Courses")
                 }
                 .tag(1)
             
-            StoreView(coins: $coins)
+            FlashcardsView()
                 .tabItem {
-                    Image(systemName: "bag.fill")
-                    Text("Store")
+                    Image(systemName: selectedTab == 2 ? "rectangle.stack.fill" : "rectangle.stack")
+                    Text("Flashcards")
                 }
                 .tag(2)
             
             ProfileView()
                 .tabItem {
-                    Image(systemName: "person.fill")
+                    Image(systemName: selectedTab == 3 ? "person.fill" : "person")
                     Text("Profile")
                 }
                 .tag(3)
@@ -79,794 +134,998 @@ struct ContentView: View {
     }
 }
 
-// MARK: - Home View
+// MARK: - HomeView
+
 struct HomeView: View {
-    @Binding var coins: Int
-    
-    let studySets = [
-        StudySet(title: "Spanish Vocabulary", cardCount: 50, lastStudied: "2 hours ago", progress: 0.75, category: "Language", author: "", downloads: 0, rating: 0, difficulty: ""),
-        StudySet(title: "Biology Chapter 5", cardCount: 30, lastStudied: "1 day ago", progress: 0.40, category: "Science", author: "", downloads: 0, rating: 0, difficulty: ""),
-        StudySet(title: "World History", cardCount: 25, lastStudied: "3 hours ago", progress: 0.90, category: "History", author: "", downloads: 0, rating: 0, difficulty: ""),
-        StudySet(title: "Math Formulas", cardCount: 40, lastStudied: "5 hours ago", progress: 0.60, category: "Math", author: "", downloads: 0, rating: 0, difficulty: "")
-    ]
+    @EnvironmentObject var appData: AppData
+    @State private var showingScanner = false
     
     var body: some View {
         NavigationView {
-            VStack(spacing: 0) {
-                // Header
-                HeaderView(coins: coins)
-                
-                ScrollView {
-                    VStack(alignment: .leading, spacing: 20) {
-                        // Welcome Section
-                        VStack(alignment: .leading, spacing: 8) {
-                            Text("Welcome back, Yann!")
-                                .font(.title2)
-                                .fontWeight(.bold)
-                            Text("Ready to continue your learning journey?")
-                                .foregroundColor(.secondary)
-                        }
-                        .padding(.horizontal, 20)
-                        .padding(.top, 20)
-                        
-                        // Stats Cards
-                        HStack(spacing: 12) {
-                            StatCard(title: "XP This Week", value: "50", color: .purple)
-                            StatCard(title: "Study Sets", value: "4", subtitle: "Active", color: .green)
-                            StatCard(title: "Accuracy", value: "87%", subtitle: "Average", color: .purple)
-                        }
-                        .padding(.horizontal, 20)
-                        
-                        // Action Buttons
-                        HStack(spacing: 12) {
-                            ActionButton(title: "Create Set", icon: "plus", isPrimary: true)
-                            
-                            ActionButton(title: "AI Practice", icon: "brain.head.profile", isPrimary: false)
-                        }
-                        .padding(.horizontal, 20)
-                        
-                        // My Study Sets
-                        VStack(alignment: .leading, spacing: 16) {
-                            HStack {
-                                Text("My Study Sets")
-                                    .font(.title3)
-                                    .fontWeight(.bold)
-                                Spacer()
-                                Button("View All") {
-                                    // Action
-                                }
-                                .foregroundColor(.purple)
-                            }
-                            .padding(.horizontal, 20)
-                            
-                            ForEach(studySets) { set in
-                                StudySetCard(studySet: set)
-                                    .padding(.horizontal, 20)
-                            }
-                        }
+            ScrollView {
+                VStack(spacing: 20) {
+                    header
+                    VStack(spacing: 16) {
+                        DailyProgressCard(progress: appData.dailyProgress)
+                        QuickActionsSection(showingScanner: $showingScanner)
+                        RecentCoursesSection(courses: appData.courses)
                     }
+                    .padding(.horizontal)
                 }
+                .padding(.bottom)
             }
-            .background(Color(.systemGroupedBackground))
-        }
-    }
-}
-
-// MARK: - Discover View
-struct DiscoverView: View {
-    let trendingTopics = ["Spanish", "Biology", "History", "Math", "Chemistry", "Literature"]
-    
-    let featuredSets = [
-        StudySet(title: "Advanced Spanish Grammar", cardCount: 120, lastStudied: "", progress: 0, category: "Language", author: "Maria Rodriguez", downloads: 15400, rating: 4.8, difficulty: "Advanced"),
-        StudySet(title: "AP Biology Cell Structure", cardCount: 85, lastStudied: "", progress: 0, category: "Science", author: "Dr. Sarah Chen", downloads: 23100, rating: 4.9, difficulty: "High School"),
-        StudySet(title: "World War II Timeline", cardCount: 65, lastStudied: "", progress: 0, category: "History", author: "Prof. James Wilson", downloads: 18200, rating: 4.7, difficulty: "Intermediate")
-    ]
-    
-    var body: some View {
-        NavigationView {
-            VStack(spacing: 0) {
-                // Header
-                HeaderView(coins: 1250)
-                
-                ScrollView {
-                    VStack(alignment: .leading, spacing: 20) {
-                        // Title
-                        VStack(alignment: .leading, spacing: 8) {
-                            Text("Discover")
-                                .font(.title2)
-                                .fontWeight(.bold)
-                            Text("Find study sets created by the community")
-                                .foregroundColor(.secondary)
-                        }
-                        .padding(.horizontal, 20)
-                        .padding(.top, 20)
-                        
-                        // Search Bar
-                        HStack {
-                            Image(systemName: "magnifyingglass")
-                                .foregroundColor(.secondary)
-                            Text("Search study sets...")
-                                .foregroundColor(.secondary)
-                            Spacer()
-                        }
-                        .padding(.horizontal, 16)
-                        .padding(.vertical, 12)
-                        .background(Color(.systemGray6))
-                        .cornerRadius(12)
-                        .padding(.horizontal, 20)
-                        
-                        // Trending Topics
-                        VStack(alignment: .leading, spacing: 12) {
-                            HStack {
-                                Image(systemName: "chart.line.uptrend.xyaxis")
-                                    .foregroundColor(.purple)
-                                Text("Trending Topics")
-                                    .font(.headline)
-                                    .fontWeight(.bold)
-                            }
-                            .padding(.horizontal, 20)
-                            
-                            ScrollView(.horizontal, showsIndicators: false) {
-                                HStack(spacing: 12) {
-                                    ForEach(trendingTopics, id: \.self) { topic in
-                                        Text(topic)
-                                            .padding(.horizontal, 16)
-                                            .padding(.vertical, 8)
-                                            .background(Color(.systemGray6))
-                                            .cornerRadius(20)
-                                    }
-                                }
-                                .padding(.horizontal, 20)
-                            }
-                        }
-                        
-                        // Featured Study Sets
-                        VStack(alignment: .leading, spacing: 16) {
-                            Text("Featured Study Sets")
-                                .font(.headline)
-                                .fontWeight(.bold)
-                                .padding(.horizontal, 20)
-                            
-                            ForEach(featuredSets) { set in
-                                FeaturedStudySetCard(studySet: set)
-                                    .padding(.horizontal, 20)
-                            }
-                        }
-                    }
-                }
+            .navigationBarHidden(true)
+            .sheet(isPresented: $showingScanner) {
+                ScannerPlaceholderView()
             }
-            .background(Color(.systemGroupedBackground))
-        }
-    }
-}
-
-// MARK: - Store View
-struct StoreView: View {
-    @Binding var coins: Int
-    @State private var selectedCategory = "Clothing"
-    
-    let categories = ["Clothing", "Hats", "Screens"]
-    let storeItems = [
-        StoreItem(name: "Purple Hoodie", price: 150, rarity: "Common", category: "Clothing", icon: "👕"),
-        StoreItem(name: "Neon Tank Top", price: 200, rarity: "Uncommon", category: "Clothing", icon: "👔"),
-        StoreItem(name: "Galaxy Jacket", price: 500, rarity: "Rare", category: "Clothing", icon: "🧥"),
-        StoreItem(name: "Legendary Tuxedo", price: 1000, rarity: "Legendary", category: "Clothing", icon: "🤵")
-    ]
-    
-    var body: some View {
-        NavigationView {
-            VStack(spacing: 0) {
-                // Header
-                HeaderView(coins: coins)
-                
-                ScrollView {
-                    VStack(alignment: .leading, spacing: 20) {
-                        // Title
-                        VStack(alignment: .leading, spacing: 8) {
-                            Text("Store")
-                                .font(.title2)
-                                .fontWeight(.bold)
-                            Text("Customize your avatar with coins")
-                                .foregroundColor(.secondary)
-                        }
-                        .padding(.horizontal, 20)
-                        .padding(.top, 20)
-                        
-                        // Coins Display
-                        VStack(spacing: 8) {
-                            HStack {
-                                Image(systemName: "bitcoinsign.circle.fill")
-                                    .foregroundColor(.orange)
-                                    .font(.title2)
-                                Text("\(coins) Coins")
-                                    .font(.title2)
-                                    .fontWeight(.bold)
-                                    .foregroundColor(.orange)
-                            }
-                            Text("Earn by completing sets and challenges!")
-                                .font(.body)
-                                .foregroundColor(.orange)
-                                .multilineTextAlignment(.center)
-                        }
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 20)
-                        .background(Color.orange.opacity(0.05))
-                        .cornerRadius(16)
-                        .padding(.horizontal, 20)
-                        
-                        // Category Selector
-                        HStack(spacing: 0) {
-                            ForEach(categories, id: \.self) { category in
-                                Button(action: {
-                                    selectedCategory = category
-                                }) {
-                                    HStack {
-                                        Image(systemName: iconForCategory(category))
-                                        Text(category)
-                                            .font(.subheadline)
-                                            .fontWeight(.medium)
-                                    }
-                                    .foregroundColor(selectedCategory == category ? .purple : .secondary)
-                                    .padding(.horizontal, 16)
-                                    .padding(.vertical, 10)
-                                    .background(selectedCategory == category ? Color.purple.opacity(0.1) : Color.clear)
-                                    .cornerRadius(20)
-                                }
-                            }
-                        }
-                        .padding(.horizontal, 20)
-                        
-                        // Store Items Grid
-                        LazyVGrid(columns: [
-                            GridItem(.flexible()),
-                            GridItem(.flexible())
-                        ], spacing: 16) {
-                            ForEach(storeItems) { item in
-                                StoreItemCard(item: item, coins: $coins)
-                            }
-                        }
-                        .padding(.horizontal, 20)
-                    }
-                }
-            }
-            .background(Color(.systemGroupedBackground))
         }
     }
     
-    private func iconForCategory(_ category: String) -> String {
-        switch category {
-        case "Clothing": return "tshirt.fill"
-        case "Hats": return "hat.widebrim.fill"
-        case "Screens": return "photo.fill"
-        default: return "questionmark"
-        }
-    }
-}
-
-// MARK: - Profile View
-struct ProfileView: View {
-    let achievements = [
-        Achievement(title: "Getting Smarter", description: "Created your first study set", icon: "target", isEarned: true),
-        Achievement(title: "Nerd", description: "Studied for 7 days in a row", icon: "eyeglasses", isEarned: true),
-        Achievement(title: "Knowledge Master", description: "Reached level 10", icon: "brain.head.profile", isEarned: true),
-        Achievement(title: "Social Learner", description: "Added 5 friends", icon: "person.2.fill", isEarned: false)
-    ]
-    
-    var body: some View {
-        NavigationView {
-            VStack(spacing: 0) {
-                // Header
-                HeaderView(coins: 0)
-                
-                ScrollView {
-                    VStack(alignment: .leading, spacing: 20) {
-                        // Title
-                        VStack(alignment: .leading, spacing: 8) {
-                            Text("Profile")
-                                .font(.title2)
-                                .fontWeight(.bold)
-                            Text("Manage your account and connect with friends")
-                                .foregroundColor(.secondary)
-                        }
-                        .padding(.horizontal, 20)
-                        .padding(.top, 20)
-                        
-                        // Profile Card
-                        VStack(spacing: 16) {
-                            HStack {
-                                ZStack {
-                                    Circle()
-                                        .fill(.purple)
-                                        .frame(width: 80, height: 80)
-                                    Text("JD")
-                                        .foregroundColor(.white)
-                                        .font(.title)
-                                        .fontWeight(.bold)
-                                    
-                                    Circle()
-                                        .fill(.gray)
-                                        .frame(width: 25, height: 25)
-                                        .overlay(
-                                            Image(systemName: "camera.fill")
-                                                .foregroundColor(.white)
-                                                .font(.caption)
-                                        )
-                                        .offset(x: 25, y: 25)
-                                }
-                                
-                                VStack(alignment: .leading, spacing: 4) {
-                                    HStack {
-                                        Text("Yann Belov")
-                                            .font(.title3)
-                                            .fontWeight(.bold)
-                                        Image(systemName: "pencil")
-                                            .foregroundColor(.secondary)
-                                            .font(.caption)
-                                    }
-                                    
-                                    Text("Level 0")
-                                        .foregroundColor(.purple)
-                                        .fontWeight(.medium)
-                                    
-                                    // XP Progress
-                                    VStack(alignment: .leading, spacing: 4) {
-                                        ProgressView(value: 0) // 0/500
-                                            .progressViewStyle(LinearProgressViewStyle(tint: .purple))
-                                        Text("0/1500 XP")
-                                            .font(.caption)
-                                            .foregroundColor(.secondary)
-                                    }
-                                }
-                                Spacer()
-                            }
-                            
-                            // Stats Row
-                            HStack {
-                                ProfileStatView(value: "15", label: "Study Sets")
-                                Spacer()
-                                ProfileStatView(value: "47 hours", label: "Study Time")
-                                Spacer()
-                                ProfileStatView(value: "4", label: "Friends")
-                            }
-                        }
-                        .padding(20)
-                        .background(Color(.secondarySystemGroupedBackground))
-                        .cornerRadius(16)
-                        .padding(.horizontal, 20)
-                        
-                        // Navigation Buttons
-                        HStack(spacing: 16) {
-                            ProfileNavButton(icon: "trophy.fill", title: "Achievements")
-                            ProfileNavButton(icon: "person.2.fill", title: "Friends")
-                            ProfileNavButton(icon: "gearshape.fill", title: "Settings")
-                        }
-                        .padding(.horizontal, 20)
-                        
-                        // Achievements Section
-                        VStack(alignment: .leading, spacing: 16) {
-                            Text("Your Achievements")
-                                .font(.headline)
-                                .fontWeight(.bold)
-                                .padding(.horizontal, 20)
-                            
-                            ForEach(achievements) { achievement in
-                                AchievementCard(achievement: achievement)
-                                    .padding(.horizontal, 20)
-                            }
-                        }
-                    }
-                }
-            }
-            .background(Color(.systemGroupedBackground))
-        }
-    }
-}
-
-// MARK: - Header View Component
-struct HeaderView: View {
-    let coins: Int
-    
-    var body: some View {
-        HStack {
+    private var header: some View {
+        VStack(alignment: .leading, spacing: 8) {
             HStack {
-                Circle()
-                    .fill(.purple)
-                    .frame(width: 30, height: 30)
-                    .overlay(
-                        Image(systemName: "brain.head.profile")
-                            .foregroundColor(.white)
-                            .font(.caption)
-                    )
-                Text("KnowBit")
-                    .font(.title2)
-                    .fontWeight(.bold)
-                    .foregroundColor(.purple)
-            }
-            
-            Spacer()
-            
-            HStack {
-                Image(systemName: "bitcoinsign.circle.fill")
-                    .foregroundColor(.orange)
-                Text("\(coins)")
-                    .fontWeight(.medium)
-            }
-            .padding(.horizontal, 12)
-            .padding(.vertical, 6)
-            .background(Color.yellow.opacity(0.2))
-            .cornerRadius(15)
-            
-            Circle()
-                .fill(.orange)
-                .frame(width: 35, height: 35)
-                .overlay(
-                    Text("YB")
+                VStack(alignment: .leading) {
+                    Text(greeting)
+                        .font(.title2)
+                        .fontWeight(.semibold)
                         .foregroundColor(.white)
-                        .font(.caption)
-                        .fontWeight(.bold)
-                )
-        }
-        .padding(.horizontal, 20)
-        .padding(.top, 10)
-    }
-}
-
-// MARK: - Helper Views
-struct StatCard: View {
-    let title: String
-    let value: String
-    var subtitle: String = ""
-    let color: Color
-    
-    var body: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Text(title)
-                .font(.caption)
-                .foregroundColor(.secondary)
-            Text(value)
-                .font(.title3)
-                .fontWeight(.bold)
-                .foregroundColor(color)
-            if !subtitle.isEmpty {
-                Text(subtitle)
-                    .font(.caption2)
-                    .foregroundColor(.secondary)
-            }
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(16)
-        .background(Color(.secondarySystemGroupedBackground))
-        .cornerRadius(12)
-    }
-}
-
-struct ActionButton: View {
-    let title: String
-    let icon: String
-    let isPrimary: Bool
-    
-    var body: some View {
-        Button(action: {
-            // Action
-        }) {
-            HStack {
-                Image(systemName: icon)
-                Text(title)
-                    .fontWeight(.medium)
-            }
-            .foregroundColor(isPrimary ? .white : .purple)
-            .frame(maxWidth: .infinity)
-            .padding(.vertical, 12)
-            .background(isPrimary ? .purple : Color(.secondarySystemGroupedBackground))
-            .cornerRadius(12)
-        }
-    }
-}
-
-struct StudySetCard: View {
-    let studySet: StudySet
-    
-    var body: some View {
-        VStack(spacing: 12) {
-            HStack {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(studySet.title)
-                        .font(.headline)
-                        .fontWeight(.bold)
-                    Text("\(studySet.cardCount) cards • \(studySet.lastStudied)")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                }
-                
-                Spacer()
-                
-                VStack(alignment: .trailing, spacing: 4) {
-                    Text(studySet.category)
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                    Button("Study") {
-                        // Action
-                    }
-                    .padding(.horizontal, 16)
-                    .padding(.vertical, 6)
-                    .background(.purple)
-                    .foregroundColor(.white)
-                    .cornerRadius(20)
-                    .font(.caption)
-                    .fontWeight(.medium)
-                }
-            }
-            
-            // Progress Bar
-            VStack(alignment: .leading, spacing: 4) {
-                ProgressView(value: studySet.progress)
-                    .progressViewStyle(LinearProgressViewStyle(tint: .purple))
-                HStack {
-                    Spacer()
-                    Text("\(Int(studySet.progress * 100))%")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                }
-            }
-        }
-        .padding(16)
-        .background(Color(.secondarySystemGroupedBackground))
-        .cornerRadius(12)
-    }
-}
-
-struct FeaturedStudySetCard: View {
-    let studySet: StudySet
-    
-    var body: some View {
-        VStack(spacing: 12) {
-            HStack {
-                Circle()
-                    .fill(.purple)
-                    .frame(width: 40, height: 40)
-                    .overlay(
-                        Text(getInitials(from: studySet.author))
-                            .foregroundColor(.white)
-                            .font(.caption)
-                            .fontWeight(.bold)
-                    )
-                
-                VStack(alignment: .leading, spacing: 2) {
-                    HStack {
-                        Text(studySet.title)
-                            .font(.headline)
-                            .fontWeight(.bold)
-                        Spacer()
-                        Image(systemName: "heart")
-                            .foregroundColor(.red)
-                    }
-                    Text(studySet.description)
+                    Text("Ready to learn today?")
                         .font(.subheadline)
-                        .foregroundColor(.secondary)
-                    Text("by \(studySet.author)")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
+                        .foregroundColor(.white.opacity(0.8))
                 }
-            }
-            
-            HStack {
-                HStack {
-                    Image(systemName: "rectangle.stack.fill")
-                    Text("\(studySet.cardCount) cards")
-                }
-                .font(.caption)
-                .foregroundColor(.secondary)
-                
-                HStack {
-                    Image(systemName: "arrow.down.circle.fill")
-                    Text("\(studySet.downloads)")
-                }
-                .font(.caption)
-                .foregroundColor(.secondary)
-                
-                HStack {
-                    Image(systemName: "star.fill")
-                    Text("\(studySet.rating, specifier: "%.1f")")
-                }
-                .font(.caption)
-                .foregroundColor(.secondary)
-                
                 Spacer()
-                
-                Button("Study") {
-                    // Action
-                }
-                .padding(.horizontal, 20)
-                .padding(.vertical, 8)
-                .background(.purple)
-                .foregroundColor(.white)
-                .cornerRadius(20)
-                .font(.caption)
-                .fontWeight(.medium)
+                ProfilePicButton(profileURL: appData.user.profileImageURL)
             }
-            
-            // Tags
-            HStack {
-                Text(studySet.category)
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 4)
-                    .background(Color(.systemGray6))
-                    .cornerRadius(12)
-                    .font(.caption)
-                
-                Text(studySet.difficulty)
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 4)
-                    .background(Color(.systemGray6))
-                    .cornerRadius(12)
-                    .font(.caption)
-                
-                Spacer()
-            }
+            .padding(.horizontal)
         }
-        .padding(16)
-        .background(Color(.secondarySystemGroupedBackground))
-        .cornerRadius(16)
-    }
-    
-    private func getInitials(from name: String) -> String {
-        let components = name.components(separatedBy: " ")
-        let initials = components.compactMap { $0.first }.map { String($0) }
-        return initials.joined().uppercased()
-    }
-}
-
-struct StoreItemCard: View {
-    let item: StoreItem
-    @Binding var coins: Int
-    
-    var body: some View {
-        VStack(spacing: 12) {
-            // Item Icon
-            Text(item.icon)
-                .font(.system(size: 50))
-            
-            VStack(spacing: 4) {
-                Text(item.name)
-                    .font(.headline)
-                    .fontWeight(.bold)
-                    .multilineTextAlignment(.center)
-                
-                Text(item.rarity)
-                    .font(.caption)
-                    .fontWeight(.medium)
-                    .foregroundColor(rarityColor(item.rarity))
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 2)
-                    .background(rarityColor(item.rarity).opacity(0.1))
-                    .cornerRadius(8)
-            }
-            
-            HStack {
-                Image(systemName: "bitcoinsign.circle.fill")
-                    .foregroundColor(.orange)
-                Text("\(item.price)")
-                    .fontWeight(.bold)
-            }
-            .font(.subheadline)
-            
-            Button("Buy") {
-                if coins >= item.price {
-                    coins -= item.price
-                }
-            }
-            .frame(maxWidth: .infinity)
-            .padding(.vertical, 8)
-            .background(coins >= item.price ? .purple : .gray)
-            .foregroundColor(.white)
-            .cornerRadius(12)
-            .fontWeight(.medium)
-            .disabled(coins < item.price)
-        }
-        .padding(16)
-        .background(Color(.secondarySystemGroupedBackground))
-        .cornerRadius(16)
-    }
-    
-    private func rarityColor(_ rarity: String) -> Color {
-        switch rarity {
-        case "Common": return .gray
-        case "Uncommon": return .green
-        case "Rare": return .blue
-        case "Legendary": return .purple
-        default: return .gray
-        }
-    }
-}
-
-struct ProfileStatView: View {
-    let value: String
-    let label: String
-    
-    var body: some View {
-        VStack(spacing: 4) {
-            Text(value)
-                .font(.title3)
-                .fontWeight(.bold)
-                .foregroundColor(.purple)
-            Text(label)
-                .font(.caption)
-                .foregroundColor(.secondary)
-        }
-    }
-}
-
-struct ProfileNavButton: View {
-    let icon: String
-    let title: String
-    
-    var body: some View {
-        Button(action: {
-            // Action
-        }) {
-            VStack(spacing: 8) {
-                Image(systemName: icon)
-                    .font(.title2)
-                    .foregroundColor(.purple)
-                Text(title)
-                    .font(.caption)
-                    .foregroundColor(.primary)
-            }
-            .frame(maxWidth: .infinity)
-            .padding(.vertical, 16)
-            .background(Color(.secondarySystemGroupedBackground))
-            .cornerRadius(12)
-        }
-    }
-}
-
-struct AchievementCard: View {
-    let achievement: Achievement
-    
-    var body: some View {
-        HStack(spacing: 16) {
-            Image(systemName: achievement.icon)
-                .font(.title2)
-                .foregroundColor(achievement.isEarned ? .orange : .gray)
-                .frame(width: 40, height: 40)
-                .background(achievement.isEarned ? Color.orange.opacity(0.1) : Color.gray.opacity(0.1))
-                .cornerRadius(20)
-            
-            VStack(alignment: .leading, spacing: 4) {
-                Text(achievement.title)
-                    .font(.headline)
-                    .fontWeight(.bold)
-                Text(achievement.description)
-                    .font(.subheadline)
-                    .foregroundColor(.secondary)
-            }
-            
-            Spacer()
-            
-            if achievement.isEarned {
-                Text("Earned")
-                    .font(.caption)
-                    .fontWeight(.medium)
-                    .foregroundColor(.orange)
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 4)
-                    .background(Color.orange.opacity(0.1))
-                    .cornerRadius(12)
-            }
-        }
-        .padding(16)
-        .background(achievement.isEarned ? Color.yellow.opacity(0.1) : Color(.secondarySystemGroupedBackground))
-        .cornerRadius(16)
-        .overlay(
-            RoundedRectangle(cornerRadius: 16)
-                .stroke(achievement.isEarned ? Color.orange.opacity(0.3) : Color.clear, lineWidth: 1)
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 20)
+        .background(
+            LinearGradient(gradient:
+                            Gradient(colors: [Color.purple, Color.purple.opacity(0.9)]),
+                           startPoint: .topLeading,
+                           endPoint: .bottomTrailing)
+            .ignoresSafeArea(edges: .top)
         )
     }
-}
-
-// MARK: - Preview
-struct ContentView_Previews: PreviewProvider {
-    static var previews: some View {
-        ContentView()
+    
+    private var greeting: String {
+        let hour = Calendar.current.component(.hour, from: Date())
+        let name = appData.user.username
+        
+        switch hour {
+        case 5..<12: return "Good morning, \(name)!"
+        case 12..<17: return "Good afternoon, \(name)!"
+        case 17..<22: return "Good evening, \(name)!"
+        default: return "Hello, \(name)!"
+        }
     }
 }
+
+// MARK: - ProfilePicButton
+
+struct ProfilePicButton: View {
+    let profileURL: String
+    
+    var body: some View {
+        Button {
+            // Add profile action here if needed
+        } label: {
+            AsyncImage(url: URL(string: profileURL)) { phase in
+                switch phase {
+                case .empty:
+                    ProgressView()
+                        .frame(width: 40, height: 40)
+                case .success(let image):
+                    image.resizable()
+                        .aspectRatio(contentMode: .fill)
+                        .frame(width: 40, height: 40)
+                        .clipShape(Circle())
+                case .failure(_):
+                    Image(systemName: "person.circle.fill")
+                        .resizable()
+                        .foregroundColor(.white.opacity(0.7))
+                        .frame(width: 40, height: 40)
+                @unknown default:
+                    EmptyView()
+                }
+            }
+        }
+    }
+}
+
+// MARK: - DailyProgressCard
+
+struct DailyProgressCard: View {
+    let progress: DailyProgress
+    
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Text("Today's Progress")
+                    .font(.headline)
+                    .fontWeight(.semibold)
+                Spacer()
+                Text("\(Int(progress.percentage))%")
+                    .font(.title2)
+                    .fontWeight(.bold)
+                    .foregroundColor(.purple)
+            }
+            GeometryReader { geo in
+                ZStack(alignment: .leading) {
+                    RoundedRectangle(cornerRadius: 8)
+                        .fill(Color.gray.opacity(0.2))
+                        .frame(height: 8)
+                    RoundedRectangle(cornerRadius: 8)
+                        .fill(LinearGradient(colors: [.purple, .pink], startPoint: .leading, endPoint: .trailing))
+                        .frame(width: geo.size.width * progress.percentage / 100, height: 8)
+                        .animation(.spring(), value: progress.percentage)
+                }
+            }
+            .frame(height: 8)
+            HStack {
+                VStack(alignment: .leading) {
+                    Text("\(progress.subjectsCompleted) of \(progress.totalSubjects) subjects")
+                        .font(.caption)
+                        .foregroundColor(.gray)
+                    Text("completed")
+                        .font(.caption)
+                        .foregroundColor(.gray)
+                }
+                Spacer()
+                VStack(alignment: .trailing) {
+                    Text(progress.timeStudied)
+                        .font(.caption)
+                        .foregroundColor(.gray)
+                    Text("studied")
+                        .font(.caption)
+                        .foregroundColor(.gray)
+                }
+            }
+        }
+        .padding(16)
+        .background(Color.white)
+        .cornerRadius(16)
+        .shadow(color: Color.black.opacity(0.1), radius: 8, x: 0, y: 2)
+    }
+}
+
+// MARK: - QuickActionsSection
+
+struct QuickActionsSection: View {
+    @Binding var showingScanner: Bool
+    
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Quick Actions")
+                .font(.headline)
+                .fontWeight(.semibold)
+                .padding(.horizontal, 4)
+            
+            HStack(spacing: 12) {
+                QuickActionButton(title: "Continue Learning", subtitle: "Mathematics", icon: "play.fill", color: .blue) {
+                    // Continue learning action
+                }
+                QuickActionButton(title: "Take Quiz", subtitle: "Science", icon: "checkmark.circle.fill", color: .green) {
+                    // Take quiz action
+                }
+            }
+            
+            QuickActionButton(title: "Scan Notes", subtitle: "AI-powered recognition", icon: "camera.viewfinder", color: .purple, fullWidth: true) {
+                showingScanner = true
+            }
+        }
+    }
+}
+
+// MARK: - QuickActionButton
+
+struct QuickActionButton: View {
+    let title: String
+    let subtitle: String
+    let icon: String
+    let color: Color
+    var fullWidth: Bool = false
+    let action: () -> Void
+    
+    @State private var isPressed = false
+    
+    var body: some View {
+        Button {
+            let haptic = UIImpactFeedbackGenerator(style: .medium)
+            haptic.impactOccurred()
+            action()
+        } label: {
+            HStack(spacing: 12) {
+                Image(systemName: icon)
+                    .font(.title2)
+                    .foregroundColor(.white)
+                    .frame(width: 24, height: 24)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(title)
+                        .font(.subheadline)
+                        .fontWeight(.semibold)
+                        .foregroundColor(.white)
+                    Text(subtitle)
+                        .font(.caption)
+                        .foregroundColor(.white.opacity(0.8))
+                }
+                if !fullWidth {
+                    Spacer()
+                }
+            }
+            .padding(16)
+            .frame(maxWidth: fullWidth ? .infinity : nil)
+            .background(LinearGradient(colors: [color, color.opacity(0.8)], startPoint: .topLeading, endPoint: .bottomTrailing))
+            .cornerRadius(16)
+        }
+        .scaleEffect(isPressed ? 0.95 : 1)
+        .animation(.spring(response: 0.3), value: isPressed)
+        .onLongPressGesture(minimumDuration: 0, maximumDistance: .infinity) {
+            // Long press complete
+        } onPressingChanged: { pressing in
+            isPressed = pressing
+        }
+    }
+}
+
+// MARK: - RecentCoursesSection
+
+struct RecentCoursesSection: View {
+    let courses: [Course]
+    
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Text("Recent Courses")
+                    .font(.headline)
+                    .fontWeight(.semibold)
+                Spacer()
+                Button("See All") {
+                    // Navigate to all courses
+                }.font(.subheadline).foregroundColor(.purple)
+            }
+            .padding(.horizontal, 4)
+            
+            LazyVStack(spacing: 12) {
+                ForEach(courses.prefix(3)) { course in
+                    CourseCard(course: course)
+                }
+            }
+        }
+    }
+}
+
+// MARK: - CourseCard
+
+struct CourseCard: View {
+    let course: Course
+    var body: some View {
+        HStack(spacing: 16) {
+            ZStack {
+                RoundedRectangle(cornerRadius: 12)
+                    .fill(course.color.opacity(0.2))
+                    .frame(width: 50, height: 50)
+                Text(course.emoji).font(.title2)
+            }
+            VStack(alignment: .leading, spacing: 4) {
+                Text(course.title)
+                    .font(.subheadline)
+                    .fontWeight(.semibold)
+                Text("\(course.totalLessons) lessons • \(Int(course.progress))% complete")
+                    .font(.caption)
+                    .foregroundColor(.gray)
+                
+                GeometryReader { geo in
+                    ZStack(alignment: .leading) {
+                        RoundedRectangle(cornerRadius: 4)
+                            .fill(Color.gray.opacity(0.2))
+                            .frame(height: 4)
+                        RoundedRectangle(cornerRadius: 4)
+                            .fill(course.color)
+                            .frame(width: geo.size.width * course.progress / 100, height: 4)
+                    }
+                }
+                .frame(height: 4)
+            }
+            Spacer()
+            Button {
+                // Play course action
+            } label: {
+                Image(systemName: "play.circle.fill")
+                    .font(.title)
+                    .foregroundColor(course.color)
+            }
+        }
+        .padding(16)
+        .background(Color.white)
+        .cornerRadius(16)
+        .shadow(color: Color.black.opacity(0.05), radius: 4, x: 0, y: 2)
+        .frame(height: 80)
+    }
+}
+
+// MARK: - CoursesView
+
+struct CoursesView: View {
+    @EnvironmentObject var appData: AppData
+    var body: some View {
+        NavigationView {
+            ScrollView {
+                LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 16) {
+                    ForEach(appData.courses) { course in
+                        CourseGridCard(course: course)
+                    }
+                }
+                .padding()
+            }
+            .navigationTitle("Courses")
+            .navigationBarTitleDisplayMode(.large)
+        }
+    }
+}
+
+// MARK: - CourseGridCard
+
+struct CourseGridCard: View {
+    let course: Course
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Text(course.emoji)
+                    .font(.title)
+                Spacer()
+                Text("\(Int(course.progress))%")
+                    .font(.caption)
+                    .fontWeight(.semibold)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
+                    .background(course.color.opacity(0.2))
+                    .foregroundColor(course.color)
+                    .cornerRadius(8)
+            }
+            VStack(alignment: .leading, spacing: 4) {
+                Text(course.title)
+                    .font(.headline)
+                    .fontWeight(.semibold)
+                    .lineLimit(2)
+                Text("\(course.totalLessons) lessons")
+                    .font(.caption)
+                    .foregroundColor(.gray)
+            }
+            Spacer()
+            GeometryReader { geo in
+                ZStack(alignment: .leading) {
+                    RoundedRectangle(cornerRadius: 4)
+                        .fill(Color.gray.opacity(0.2))
+                        .frame(height: 6)
+                    RoundedRectangle(cornerRadius: 4)
+                        .fill(
+                            LinearGradient(colors: [course.color, course.color.opacity(0.7)],
+                                           startPoint: .leading,
+                                           endPoint: .trailing)
+                        )
+                        .frame(width: geo.size.width * course.progress / 100, height: 6)
+                }
+            }
+            .frame(height: 6)
+        }
+        .padding(16)
+        .frame(height: 160)
+        .background(Color.white)
+        .cornerRadius(16)
+        .shadow(color: Color.black.opacity(0.1), radius: 8, x: 0, y: 2)
+    }
+}
+
+// MARK: - FlashcardsView
+
+struct FlashcardsView: View {
+    @EnvironmentObject var appData: AppData
+    @State private var showingCreateFlashcard = false
+    
+    var body: some View {
+        NavigationView {
+            ScrollView {
+                LazyVStack(spacing: 16) {
+                    ForEach(appData.flashcardSets) { set in
+                        NavigationLink(destination: FlashcardSetView(set: set)) {
+                            FlashcardSetCard(set: set)
+                        }
+                        .buttonStyle(PlainButtonStyle())
+                    }
+                }
+                .padding()
+            }
+            .navigationTitle("Flashcards")
+            .navigationBarTitleDisplayMode(.large)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button {
+                        showingCreateFlashcard = true
+                    } label: {
+                        Image(systemName: "plus")
+                    }
+                }
+            }
+            .sheet(isPresented: $showingCreateFlashcard) {
+                CreateFlashcardSetView()
+                    .environmentObject(appData)
+            }
+        }
+    }
+}
+
+// MARK: - FlashcardSetCard
+
+struct FlashcardSetCard: View {
+    let set: FlashcardSet
+    var body: some View {
+        HStack(spacing: 16) {
+            ZStack {
+                RoundedRectangle(cornerRadius: 12)
+                    .fill(set.color.opacity(0.2))
+                    .frame(width: 60, height: 60)
+                Text(set.emoji).font(.title)
+            }
+            VStack(alignment: .leading, spacing: 4) {
+                Text(set.title)
+                    .font(.headline)
+                    .fontWeight(.semibold)
+                    .foregroundColor(.primary)
+                Text("\(set.cards.count) cards")
+                    .font(.subheadline)
+                    .foregroundColor(.gray)
+                Text("Last studied: \(set.lastStudied, formatter: dateFormatter)")
+                    .font(.caption)
+                    .foregroundColor(.gray)
+            }
+            Spacer()
+            VStack {
+                Image(systemName: "chevron.right")
+                    .foregroundColor(.gray)
+                    .font(.caption)
+                Spacer()
+            }
+        }
+        .padding(16)
+        .background(Color.white)
+        .cornerRadius(16)
+        .shadow(color: Color.black.opacity(0.05), radius: 4, x: 0, y: 2)
+    }
+}
+
+private let dateFormatter: DateFormatter = {
+    let formatter = DateFormatter()
+    formatter.dateStyle = .short
+    formatter.timeStyle = .none
+    return formatter
+}()
+
+// MARK: - FlashcardSetView
+
+struct FlashcardSetView: View {
+    let set: FlashcardSet
+    
+    @State private var currentCardIndex = 0
+    @State private var isFlipped = false
+    @State private var dragOffset = CGSize.zero
+    
+    var body: some View {
+        VStack(spacing: 20) {
+            HStack {
+                Text("\(currentCardIndex + 1) of \(set.cards.count)")
+                    .font(.subheadline)
+                    .foregroundColor(.gray)
+                Spacer()
+                Button("Shuffle") {
+                    // Shuffle placeholder
+                }
+                .font(.subheadline)
+                .foregroundColor(.purple)
+            }
+            .padding(.horizontal)
+            
+            ZStack {
+                ForEach(0..<min(3, set.cards.count), id: \.self) { offsetIndex in
+                    let cardIndex = (currentCardIndex + offsetIndex) % set.cards.count
+                    FlashcardView(
+                        card: set.cards[cardIndex],
+                        isFlipped: offsetIndex == 0 ? isFlipped : false,
+                        offset: offsetIndex == 0 ? dragOffset : .zero,
+                        scale: 1 - Double(offsetIndex) * 0.05,
+                        opacity: 1 - Double(offsetIndex) * 0.3
+                    )
+                    .zIndex(Double(3 - offsetIndex))
+                    .allowsHitTesting(offsetIndex == 0)
+                }
+            }
+            .frame(height: 220)
+            .onTapGesture {
+                flipCard()
+            }
+            .gesture(
+                DragGesture()
+                    .onChanged { value in dragOffset = value.translation }
+                    .onEnded { value in
+                        if abs(value.translation.width) > 100 {
+                            if value.translation.width > 0 {
+                                previousCard()
+                            } else {
+                                nextCard()
+                            }
+                            isFlipped = false
+                        }
+                        withAnimation(.spring()) {
+                            dragOffset = .zero
+                        }
+                    }
+            )
+            
+            Spacer()
+            
+            HStack(spacing: 20) {
+                Button {
+                    previousCard()
+                } label: {
+                    Image(systemName: "chevron.left")
+                        .font(.title2)
+                        .padding()
+                        .background(Color.gray.opacity(0.1))
+                        .clipShape(Circle())
+                }
+                .disabled(currentCardIndex == 0)
+                
+                Spacer()
+                
+                Button {
+                    flipCard()
+                } label: {
+                    Text(isFlipped ? "Show Question" : "Show Answer")
+                        .padding(.horizontal, 24)
+                        .padding(.vertical, 12)
+                        .background(Color.purple)
+                        .foregroundColor(.white)
+                        .cornerRadius(25)
+                }
+                
+                Spacer()
+                
+                Button {
+                    nextCard()
+                } label: {
+                    Image(systemName: "chevron.right")
+                        .font(.title2)
+                        .padding()
+                        .background(Color.gray.opacity(0.1))
+                        .clipShape(Circle())
+                }
+                .disabled(currentCardIndex == set.cards.count - 1)
+            }
+            .padding(.horizontal)
+        }
+        .padding()
+        .navigationTitle(set.title)
+        .navigationBarTitleDisplayMode(.inline)
+    }
+    
+    private func flipCard() {
+        withAnimation(.spring()) {
+            isFlipped.toggle()
+        }
+        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+    }
+    
+    private func nextCard() {
+        withAnimation {
+            if currentCardIndex < set.cards.count - 1 {
+                currentCardIndex += 1
+                isFlipped = false
+            }
+        }
+    }
+    
+    private func previousCard() {
+        withAnimation {
+            if currentCardIndex > 0 {
+                currentCardIndex -= 1
+                isFlipped = false
+            }
+        }
+    }
+}
+
+// MARK: - FlashcardView (front/back)
+
+struct FlashcardView: View {
+    let card: Flashcard
+    let isFlipped: Bool
+    let offset: CGSize
+    let scale: Double
+    let opacity: Double
+    
+    var body: some View {
+        ZStack {
+            RoundedRectangle(cornerRadius: 20)
+                .fill(Color.white)
+                .shadow(color: Color.black.opacity(0.15), radius: 10, x: 0, y: 5)
+            
+            VStack(spacing: 20) {
+                if !isFlipped {
+                    VStack {
+                        Text("Question")
+                            .font(.caption)
+                            .fontWeight(.semibold)
+                            .foregroundColor(.purple)
+                        Text(card.question)
+                            .font(.title2)
+                            .fontWeight(.medium)
+                            .multilineTextAlignment(.center)
+                            .padding(.horizontal)
+                    }
+                } else {
+                    VStack {
+                        Text("Answer")
+                            .font(.caption)
+                            .fontWeight(.semibold)
+                            .foregroundColor(.green)
+                        Text(card.answer)
+                            .font(.title2)
+                            .fontWeight(.medium)
+                            .multilineTextAlignment(.center)
+                            .padding(.horizontal)
+                    }
+                }
+            }
+            .rotation3DEffect(
+                .degrees(isFlipped ? 180 : 0),
+                axis: (x: 0, y: 1, z: 0)
+            )
+        }
+        .frame(width: 300, height: 200)
+        .scaleEffect(scale)
+        .opacity(opacity)
+        .offset(offset)
+        .rotation3DEffect(.degrees(Double(offset.width) / 10), axis: (x: 0, y: 1, z: 0))
+    }
+}
+
+// MARK: - CreateFlashcardSetView (simplified for performance)
+
+struct CreateFlashcardSetView: View {
+    @Environment(\.presentationMode) var presentationMode
+    @EnvironmentObject var appData: AppData
+    
+    @State private var title = ""
+    @State private var selectedEmoji = "📚"
+    @State private var selectedColor = Color.purple
+    @State private var cards: [Flashcard] = [Flashcard(question: "", answer: "")]
+    
+    let emojis = ["📚", "🧮", "🔬", "🎨", "🌍", "💻", "🏛️", "🎵", "⚽", "🚀"]
+    let colors: [Color] = [.purple, .blue, .green, .orange, .red, .pink, .indigo, .teal]
+    
+    var body: some View {
+        NavigationView {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 20) {
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("Set Title").font(.headline)
+                        TextField("Enter set title", text: $title)
+                            .textFieldStyle(RoundedBorderTextFieldStyle())
+                    }
+                    
+                    // Emoji Selection
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("Choose Icon").font(.headline)
+                        LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 5), spacing: 12) {
+                            ForEach(emojis, id: \.self) { emoji in
+                                Button {
+                                    selectedEmoji = emoji
+                                } label: {
+                                    Text(emoji)
+                                        .font(.title)
+                                        .frame(width: 50, height: 50)
+                                        .background(selectedEmoji == emoji ? Color.purple.opacity(0.2) : Color.clear)
+                                        .cornerRadius(10)
+                                }
+                            }
+                        }
+                    }
+                    
+                    // Color Selection
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("Choose Color").font(.headline)
+                        LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 4), spacing: 12) {
+                            ForEach(colors, id: \.self) { color in
+                                Button {
+                                    selectedColor = color
+                                } label: {
+                                    Circle()
+                                        .fill(color)
+                                        .frame(width: 40, height: 40)
+                                        .overlay(
+                                            Circle()
+                                                .stroke(Color.white, lineWidth: selectedColor == color ? 3 : 0)
+                                        )
+                                }
+                            }
+                        }
+                    }
+                    
+                    // Flashcards Editing
+                    VStack(alignment: .leading, spacing: 12) {
+                        HStack {
+                            Text("Flashcards").font(.headline)
+                            Spacer()
+                            Button("Add Card") {
+                                withAnimation {
+                                    cards.append(Flashcard(question: "", answer: ""))
+                                }
+                            }
+                            .foregroundColor(.purple)
+                        }
+                        
+                        LazyVStack(spacing: 12) {
+                            ForEach($cards) { $card in
+                                FlashcardEditRow(card: $card, cards: $cards)
+                            }
+                        }
+                    }
+                    
+                    // Save Button
+                    Button(action: saveSet) {
+                        Text("Save")
+                            .frame(maxWidth: .infinity)
+                            .padding()
+                            .background(canSave ? Color.purple : Color.gray)
+                            .foregroundColor(.white)
+                            .cornerRadius(16)
+                    }
+                    .disabled(!canSave)
+                }
+                .padding()
+            }
+            .navigationTitle("New Flashcard Set")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarLeading) {
+                    Button("Cancel") {
+                        presentationMode.wrappedValue.dismiss()
+                    }
+                }
+            }
+        }
+    }
+    
+    var canSave: Bool {
+        !title.trimmingCharacters(in: .whitespaces).isEmpty &&
+        !cards.isEmpty &&
+        cards.allSatisfy { !$0.question.isEmpty && !$0.answer.isEmpty }
+    }
+    
+    func saveSet() {
+        let newSet = FlashcardSet(title: title, emoji: selectedEmoji, color: selectedColor, cards: cards)
+        appData.flashcardSets.append(newSet)
+        presentationMode.wrappedValue.dismiss()
+    }
+}
+
+struct FlashcardEditRow: View {
+    @Binding var card: Flashcard
+    @Binding var cards: [Flashcard]
+    
+    var body: some View {
+        VStack(spacing: 8) {
+            TextField("Question", text: $card.question)
+                .textFieldStyle(RoundedBorderTextFieldStyle())
+            TextField("Answer", text: $card.answer)
+                .textFieldStyle(RoundedBorderTextFieldStyle())
+            
+            if cards.count > 1 {
+                HStack {
+                    Spacer()
+                    Button("Remove") {
+                        withAnimation {
+                            if let index = cards.firstIndex(where: { $0.id == card.id }) {
+                                cards.remove(at: index)
+                            }
+                        }
+                    }
+                    .foregroundColor(.red)
+                    .font(.caption)
+                }
+            }
+        }
+        .padding()
+        .background(Color.gray.opacity(0.1))
+        .cornerRadius(10)
+    }
+}
+
+// MARK: - ProfileView
+
+struct ProfileView: View {
+    @EnvironmentObject var appData: AppData
+    
+    @State private var showingImagePicker = false
+    @State private var inputImage: UIImage?
+    @State private var editedUsername = ""
+    
+    var body: some View {
+        NavigationView {
+            ScrollView {
+                VStack(spacing: 20) {
+                    profileImageSection
+                    
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("Username").font(.headline)
+                        TextField("Enter username", text: $editedUsername)
+                            .textFieldStyle(RoundedBorderTextFieldStyle())
+                    }
+                    
+                    HStack {
+                        VStack {
+                            Text("\(appData.user.streak)")
+                                .font(.title)
+                                .fontWeight(.bold)
+                            Text("Day Streak")
+                                .font(.caption)
+                                .foregroundColor(.gray)
+                        }
+                        Spacer()
+                        VStack {
+                            Text(appData.user.totalStudyTime)
+                                .font(.title)
+                                .fontWeight(.bold)
+                            Text("Total Study Time")
+                                .font(.caption)
+                                .foregroundColor(.gray)
+                        }
+                    }
+                    .padding()
+                    .frame(maxWidth: .infinity)
+                    .background(Color(.secondarySystemBackground))
+                    .cornerRadius(16)
+                    
+                    settingsSection
+                    
+                    Spacer()
+                }
+                .padding()
+                .onAppear {
+                    editedUsername = appData.user.username
+                }
+                .onChange(of: editedUsername) { newValue in
+                    appData.user.username = newValue
+                }
+                .sheet(isPresented: $showingImagePicker, onDismiss: loadImage) {
+                    ImagePicker(image: $inputImage)
+                }
+            }
+            .navigationTitle("Profile")
+            .navigationBarTitleDisplayMode(.inline)
+        }
+    }
+    
+    private var profileImageSection: some View {
+        VStack {
+            if let inputImage = inputImage {
+                Image(uiImage: inputImage)
+                    .resizable()
+                    .scaledToFill()
+                    .frame(width: 100, height: 100)
+                    .clipShape(Circle())
+                    .shadow(radius: 5)
+            } else if let url = URL(string: appData.user.profileImageURL) {
+                AsyncImage(url: url) { phase in
+                    switch phase {
+                    case .empty:
+                        ProgressView()
+                            .frame(width: 100, height: 100)
+                    case .success(let image):
+                        image.resizable()
+                            .scaledToFill()
+                            .frame(width: 100, height: 100)
+                            .clipShape(Circle())
+                            .shadow(radius: 5)
+                    case .failure(_):
+                        Circle()
+                            .fill(Color.gray.opacity(0.4))
+                            .frame(width: 100, height: 100)
+                            .overlay(Text("No Image").foregroundColor(.white))
+                    @unknown default:
+                        EmptyView()
+                    }
+                }
+            } else {
+                Circle()
+                    .fill(Color.gray.opacity(0.4))
+                    .frame(width: 100, height: 100)
+                    .overlay(Text("No Image").foregroundColor(.white))
+            }
+            
+            Button("Change Profile Picture") {
+                showingImagePicker = true
+            }
+            .foregroundColor(.purple)
+            .padding(.top, 8)
+        }
+    }
+    
+    private var settingsSection: some View {
+        Section(header: Text("Settings")
+            .font(.headline)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.top, 20)) {
+                Toggle(isOn: $appData.isDarkMode) {
+                    Label("Dark Mode", systemImage: "moon.fill")
+                        .foregroundColor(.purple)
+                }
+                .padding(.vertical, 8)
+        }
+    }
+    
+    private func loadImage() {
+        guard let inputImage = inputImage else { return }
+        // For demo, just keep the local UIImage. In production, upload and save URL in user profile.
+        // Here we'll convert image to base64 to simulate storing URL (not ideal for production).
+        if let jpegData = inputImage.jpegData(compressionQuality: 0.8) {
+            let base64 = jpegData.base64EncodedString()
+            appData.user.profileImageURL = "data:image/jpeg;base64,\(base64)"
+        }
+    }
+}
+
+// MARK: - ImagePicker UIKit bridge
+
+struct ImagePicker: UIViewControllerRepresentable {
+    @Binding var image: UIImage?
+    
+    class Coordinator: NSObject, UINavigationControllerDelegate, UIImagePickerControllerDelegate {
+        let parent: ImagePicker
+        init(_ parent: ImagePicker) { self.parent = parent }
+        
+        func imagePickerController(_ picker: UIImagePickerController, didFinishPickingMediaWithInfo info: [UIImagePickerController.InfoKey: Any]) {
+            if let uiImage = info[.originalImage] as? UIImage {
+                parent.image = uiImage
+            }
+            picker.dismiss(animated: true)
+        }
+    }
+    
+    func makeCoordinator() -> Coordinator { Coordinator(self) }
+    
+    func makeUIViewController(context: Context) -> UIImagePickerController {
+        let picker = UIImagePickerController()
+        picker.delegate = context.coordinator
+        picker.allowsEditing = false
+        picker.sourceType = .photoLibrary
+        return picker
+    }
+    
+    func updateUIViewController(_ uiViewController: UIImagePickerController, context: Context) {}
+}
+
+// MARK: - Scanner Placeholder View
+
+struct ScannerPlaceholderView: View {
+    @Environment(\.presentationMode) var presentationMode
+    
+    var body: some View {
+        VStack(spacing: 20) {
+            Text("Smart Scanner")
+                .font(.largeTitle)
+                .bold()
+            Text("AI-powered scanning coming soon.\nUse camera to scan handwritten notes and textbooks to convert into digital study materials.")
+                .multilineTextAlignment(.center)
+                .padding()
+            Button("Dismiss") {
+                presentationMode.wrappedValue.dismiss()
+            }
+            .buttonStyle(.borderedProminent)
+            .tint(.purple)
+        }
+        .padding()
+    }
+}
+
